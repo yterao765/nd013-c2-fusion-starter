@@ -135,7 +135,7 @@ def bev_from_pcl(lidar_pcl, configs):
     lidar_pcl_cpy[:, 1] = np.int_(np.floor((lidar_pcl_cpy[:, 1] - configs.lim_y[0]) / bev_discret_y))
 
     # step 4 : visualize point-cloud using the function show_pcl from a previous task
-    show_pcl(lidar_pcl_cpy)
+    # show_pcl(lidar_pcl_cpy)
     
     #######
     ####### ID_S2_EX1 END #######     
@@ -162,14 +162,15 @@ def bev_from_pcl(lidar_pcl, configs):
     ## step 4 : assign the intensity value of each unique entry in lidar_top_pcl to the intensity map 
     ##          make sure that the intensity is scaled in such a way that objects of interest (e.g. vehicles) are clearly visible    
     ##          also, make sure that the influence of outliers is mitigated by normalizing intensity on the difference between the max. and min. value within the point cloud
-    min_intensity = np.min(lidar_pcl_intense[:, 3])
-    max_intensity = np.max(lidar_pcl_intense[:, 3])
-    intensity_map[np.int_(lidar_pcl_intense[:, 0]), np.int_(lidar_pcl_intense[:, 1])] = max_intensity/2 * (lidar_pcl_intense[:, 3]-min_intensity) * 255 / (max_intensity-min_intensity)
-    intensity_map = intensity_map.astype(np.uint8)
+    intensity_1th = np.percentile(lidar_pcl[:, 3], 1)
+    intensity_99th = np.percentile(lidar_pcl[:, 3], 99)
+    lidar_pcl_intense[:, 3][lidar_pcl_intense[:, 3] < intensity_1th] = intensity_1th
+    lidar_pcl_intense[:, 3][lidar_pcl_intense[:, 3] > intensity_99th] = intensity_99th
+    intensity_map[np.int_(lidar_pcl_intense[:, 0]), np.int_(lidar_pcl_intense[:, 1])] = (lidar_pcl_intense[:, 3]-intensity_1th) / (intensity_99th-intensity_1th)
 
     ## step 5 : temporarily visualize the intensity map using OpenCV to make sure that vehicles separate well from the background
-    cv2.imshow("intensity channel", intensity_map)
-    cv2.waitKey(0)
+    # cv2.imshow("intensity channel", (intensity_map*255).astype(np.uint8))
+    # cv2.waitKey(0)
 
     #######
     ####### ID_S2_EX2 END ####### 
@@ -190,12 +191,11 @@ def bev_from_pcl(lidar_pcl, configs):
     lidar_pcl_top = lidar_pcl_cpy[sorted_idx]
     _, unique_idx = np.unique(lidar_pcl_top[:, 0:2], return_index=True, axis=0)
     lidar_pcl_top = lidar_pcl_top[unique_idx]
-    height_map[np.int_(lidar_pcl_top[:, 0]), np.int_(lidar_pcl_top[:, 1])] = (lidar_pcl_top[:, 2]-np.min(lidar_pcl_top[:, 2])) * 255 / (np.max(lidar_pcl_top[:, 2])-np.min(lidar_pcl_top[:, 2]))
-    height_map = height_map.astype(np.uint8)
+    height_map[np.int_(lidar_pcl_top[:, 0]), np.int_(lidar_pcl_top[:, 1])] = (lidar_pcl_top[:, 2]-np.min(lidar_pcl_top[:, 2])) / (np.max(lidar_pcl_top[:, 2])-np.min(lidar_pcl_top[:, 2]))
 
     ## step 3 : temporarily visualize the intensity map using OpenCV to make sure that vehicles separate well from the background
-    cv2.imshow("height channel", height_map)
-    cv2.waitKey(0)
+    # cv2.imshow("height channel", (height_map*255).astype(np.uint8))
+    # cv2.waitKey(0)
 
     #######
     ####### ID_S2_EX3 END #######       
@@ -203,7 +203,7 @@ def bev_from_pcl(lidar_pcl, configs):
     # Compute density layer of the BEV map
     density_map = np.zeros((configs.bev_height + 1, configs.bev_width + 1))
     _, _, counts = np.unique(lidar_pcl_cpy[:, 0:2], axis=0, return_index=True, return_counts=True)
-    normalizedCounts = np.minimum(1.0, np.log(counts + 1) / np.log(64)) 
+    normalizedCounts = np.minimum(1.0, np.log(counts + 1) / np.log(64))
     density_map[np.int_(lidar_pcl_top[:, 0]), np.int_(lidar_pcl_top[:, 1])] = normalizedCounts
         
     # assemble 3-channel bev-map from individual maps
